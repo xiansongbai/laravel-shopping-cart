@@ -9,7 +9,8 @@
 namespace Overtrue\LaravelShoppingCart;
 
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Session\SessionManager;
+// use Illuminate\Session\SessionManager;
+use Illuminate\Cache\CacheManager as SessionManager;
 use Illuminate\Support\Collection;
 
 /**
@@ -45,6 +46,9 @@ class Cart
      */
     protected $model;
 
+    //缓存有效时间
+    protected $time;
+
     /**
      * Constructor.
      *
@@ -53,6 +57,7 @@ class Cart
      */
     public function __construct(SessionManager $session, Dispatcher $event)
     {
+        $this->time = config('cache.time_limit');
         $this->session = $session;
         $this->event = $event;
     }
@@ -304,7 +309,7 @@ class Cart
 
         foreach ($this->getCart() as $item) {
             if (array_intersect_assoc($item->intersect($search)->toArray(), $search)) {
-                $rows->put($item->__raw_id, $item);
+                $rows->put($item->__raw_id, $item,$this->time);
             }
         }
 
@@ -399,7 +404,7 @@ class Cart
      */
     protected function save($cart)
     {
-        $this->session->put($this->name, $cart);
+        $this->session->put($this->name, $cart,$this->time);
 
         return $cart;
     }
@@ -431,14 +436,14 @@ class Cart
         $row = $cart->get($rawId);
 
         foreach ($attributes as $key => $value) {
-            $row->put($key, $value);
+            $row->put($key, $value,$this->time);
         }
 
         if (count(array_intersect(array_keys($attributes), ['qty', 'price']))) {
-            $row->put('total', $row->qty * $row->price);
+            $row->put('total', $row->qty * $row->price,$this->time);
         }
 
-        $cart->put($rawId, $row);
+        $cart->put($rawId, $row,$this->time);
 
         return $row;
     }
@@ -461,7 +466,7 @@ class Cart
 
         $cart = $this->getCart();
 
-        $cart->put($rawId, $newRow);
+        $cart->put($rawId, $newRow,$this->time);
 
         $this->save($cart);
 
